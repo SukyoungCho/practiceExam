@@ -24,29 +24,65 @@ library(nycflights13)
 Make a plot with three facets, one for each airport in the weather data.  The x-axis should be the day of the year (1:365) and the y-axis should be the mean temperature recorded on that day, at that airport.
 ```{r}
 library(lubridate)
-weather %>% mutate(day_of_year = yday(time_hour))
+weather %>% mutate(day_of_year = yday(time_hour)) %>% 
+  ggplot() +
+  geom_point(mapping = aes(x = day_of_year, y = temp)) + 
+  facet_grid(~ origin)
+  
+#facet_wrap(~ origin, nrow = 3)
 ```
 
 
 Make a non-tidy matrix of that data where each row is an airport and each column is a day of the year.  
 
 ```{r}
-
+### Couldnt figure out
+weather %>% mutate(day_of_year = yday(time_hour)) %>% 
+  group_by(origin)
 ```
 
 
 For each (airport, day) contruct a tidy data set of the airport's "performance" as the proportion of flights that departed less than an hour late. 
 ```{r}
+# a<- flights %>% mutate(day_of_year = yday(time_hour)) %>% 
+#   group_by(origin,day_of_year) %>%  select(origin,day_of_year,dep_delay) %>% 
+#   filter(dep_delay<60) %>% summarise(countgood = m)
+# 
+# b<-flights %>% mutate(day_of_year = yday(time_hour)) %>% 
+#   group_by(origin,day_of_year) %>%  select(origin,day_of_year,dep_delay) %>%  summarise(performance = mean())
+# 
+# #answer
+# c<- left_join(a,b) %>% mutate(performance = countgood / count)
+
+performance <- flights %>% mutate(day_of_year = yday(time_hour)) %>% 
+  group_by(origin,day_of_year) %>%  select(origin,day_of_year,dep_delay) %>%
+  summarise(count = n(), n_early = sum(dep_delay<60,na.rm = TRUE), performance = n_early / count)
+#%>% summarise(performance = n(dep_delay<60))
+
 ```
 
 Construct a tidy data set to that give weather summaries for each (airport, day).  Use the total precipitation, minimum visibility, maximum wind_gust, and average wind_speed.  
 ```{r}
+summary <- weather %>% mutate(day_of_year = yday(time_hour)) %>% 
+  select(origin, day_of_year, precip, visib, wind_gust, wind_speed) %>% 
+  group_by(origin, day_of_year) %>% summarise(avg_precip = mean(precip, na.rm = TRUE),
+                                              avg_visib = mean(visib, na.rm = TRUE),
+                                              avg_wind_gust = mean(wind_gust, na.rm = TRUE),
+                                              avg_wind_speed = mean(wind_speed, na.rm = TRUE))
+  
+
 ```
 
 Construct a linear model to predict the performance of each (airport,day) using the weather summaries and a "fixed effect" for each airport.  Display the summaries.  
 ```{r}
+# Fixed Effect = dummy variable. For example if x1 = 1, EWR, x2 = 1, LGA. we dont need one for JFK then.
+df <- inner_join(performance,summary)
+
+summary(lm(performance ~ avg_precip + avg_visib + avg_wind_gust + avg_wind_speed + origin, data=df))
 ```
 
 Repeat the above, but only for EWR.  Obviously, exclude the fixed effect for each airport.
 ```{r}
+ewr <- df %>% filter(origin == "EWR") 
+summary(lm(performance ~ avg_precip + avg_visib + avg_wind_gust + avg_wind_speed ,data = ewr))
 ```
